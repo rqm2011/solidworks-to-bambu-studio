@@ -1,0 +1,103 @@
+# SolidWorks → Bambu Studio
+
+这是一个面向 **SOLIDWORKS 2025（64 位）** 的 C# COM 加载项。打开零件后，点击工具栏上的“发送到 Bambu Studio”，插件会自动完成：
+
+1. 重建当前零件并导出毫米制二进制 STL 到本地缓存；
+2. 直接用 Bambu Studio 打开该模型；
+3. 定期清理旧缓存。
+
+用户不需要手动生成 3MF、打开“导入”对话框或寻找文件。Bambu Studio 中仍会保留打印机、耗材、摆放、支撑、切片和最终打印确认，避免错误参数直接下发打印机。
+
+## 当前功能
+
+- 仅在活动文档为 `.SLDPRT` 零件时启用；
+- 支持未保存的新零件和不同配置；
+- 导出整个零件，不受当前面/实体选择影响；
+- 临时切换到二进制 STL、毫米单位、静默导出，结束后恢复用户原有的 SOLIDWORKS STL 设置；
+- 自动查找 Bambu Studio，也可在设置窗口中手动指定；
+- 默认保留最近 7 天的缓存，避免 Bambu Studio 尚未读完时源文件被删除；
+- 提供安装、卸载和日志。
+
+> 技术说明：Bambu Studio 不能直接读取 SOLIDWORKS 的 B-Rep/特征树，因此中间的网格离散不可省略。本插件把它隐藏成 `%LOCALAPPDATA%\SolidWorksToBambu\exports` 下的临时 STL，而不是生成用户需要管理的 3MF。
+
+## 安装
+
+### 前提
+
+- Windows 10/11 64 位；
+- SOLIDWORKS 2025 64 位；
+- Bambu Studio；
+- 推荐安装 Visual Studio 2022 或 Build Tools 2022 的“.NET 桌面生成工具”和 .NET Framework 4.8 Developer Pack；如果未安装，脚本会自动使用 Windows 自带的 64 位 C# 编译器进入兼容构建模式。
+
+### 一键编译并注册
+
+先关闭 SOLIDWORKS，然后在本项目目录打开 PowerShell：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Install.ps1
+```
+
+脚本会请求管理员权限，这是因为 SOLIDWORKS 按官方加载项机制从 `HKEY_LOCAL_MACHINE\SOFTWARE\SolidWorks\Addins` 发现 COM 加载项。
+
+如果 SOLIDWORKS 安装在自定义位置：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Install.ps1 -SolidWorksDirectory "D:\SOLIDWORKS Corp\SOLIDWORKS"
+```
+
+安装后启动 SOLIDWORKS 2025：
+
+1. 打开 `工具 > 插件`；
+2. 确认 `SolidWorks → Bambu Studio` 的“当前启用”和“启动”已勾选；
+3. 打开任意零件；
+4. 点击 Bambu Studio 工具栏按钮，或使用 `工具 > Bambu Studio > 发送到 Bambu Studio`。
+
+首次找不到 Bambu Studio 时，插件会提示选择 `bambu-studio.exe`。
+
+## 卸载
+
+先关闭 SOLIDWORKS：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Uninstall.ps1
+```
+
+同时删除设置、日志和临时导出缓存：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Uninstall.ps1 -RemoveUserData
+```
+
+## 目录与日志
+
+- 插件安装目录：`%USERPROFILE%\Documents\SolidWorksToBambu\addin`
+- 临时导出：`%LOCALAPPDATA%\SolidWorksToBambu\exports`
+- 日志：`%LOCALAPPDATA%\SolidWorksToBambu\SolidWorksToBambu.log`
+- 设置：`HKEY_CURRENT_USER\Software\SolidWorksToBambu`
+
+## 开发与编译
+
+仅编译：
+
+```powershell
+.\scripts\Build.ps1 -Configuration Release
+```
+
+编译时使用 SOLIDWORKS 安装目录的三个官方互操作程序集，并把所需 COM 类型嵌入插件 DLL；部署时只需插件本体和官方 `SolidWorksTools.dll`：
+
+- `SolidWorks.Interop.sldworks.dll`
+- `SolidWorks.Interop.swconst.dll`
+- `SolidWorks.Interop.swpublished.dll`
+
+实现依据：
+
+- [SOLIDWORKS 2025 ISwAddin 接口](https://help.solidworks.com/2025/english/api/swpublishedapi/SolidWorks.Interop.swpublished~SolidWorks.Interop.swpublished.ISwAddin.html)
+- [SOLIDWORKS 2025 加载项注册与回调机制](https://help.solidworks.com/2025/english/api/sldworksapiprogguide/overview/using_swaddin_to_create_a_solidworks_addin.htm)
+- [IModelDocExtension.SaveAs3 与 STL 导出要求](https://help.solidworks.com/2025/english/api/sldworksapi/SolidWorks.Interop.sldworks~SolidWorks.Interop.sldworks.IModelDocExtension~SaveAs3.html)
+- [Bambu Studio 官方命令行用法](https://github.com/bambulab/BambuStudio/wiki/Command-Line-Usage)
+
+## 已知边界
+
+- 目前只发送单个零件；装配体的“合并成一个对象”或“各零件分对象”需要单独设计交互。
+- STL 不携带颜色、材料或装配层级。需要这些信息时，可增加临时 3MF 模式，但这与当前“无需 3MF”的目标不同。
+- 插件负责把几何送入 Bambu Studio，不自动点击“切片/打印”。完全自动下发需要明确的打印机、喷嘴、耗材、热床和工艺预设，并涉及 Bambu Studio/打印机认证。
