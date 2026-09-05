@@ -9,3 +9,4 @@ backups/
 fusion-logs/
 *.reg
 tests/ActiveSolidWorksAddinProbe.csx
+artifacts/

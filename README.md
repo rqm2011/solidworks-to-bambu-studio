@@ -24,6 +24,14 @@
 
 ## 安装
 
+### 推荐：安装包
+
+从 [GitHub Releases](https://github.com/rqm2011/solidworks-to-bambu-studio/releases/latest) 下载 `SolidWorksToBambu-Setup-v0.2.0.exe`。关闭 SOLIDWORKS 后双击安装，接受 Windows 管理员权限提示即可；不需要 Visual Studio、MSBuild 或 SOLIDWORKS API 开发环境。
+
+安装包会将插件部署到 `%USERPROFILE%\Documents\SolidWorksToBambu\addin`，同步系统与当前用户的 64 位 COM 注册，并在 Windows“应用和功能”中登记卸载入口。
+
+### 从源码安装
+
 ### 前提
 
 - Windows 10/11 64 位；
@@ -91,6 +99,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Uninstall.ps1 -RemoveUserData
 ```powershell
 .\scripts\Build.ps1 -Configuration Release
 ```
+
+生成单文件安装包：
+
+```powershell
+.\scripts\Build-Installer.ps1
+```
+
+安装包和 SHA-256 校验文件会生成到 `artifacts` 目录。
 
 编译时使用 SOLIDWORKS 安装目录的三个官方互操作程序集，并把所需 COM 类型嵌入插件 DLL；部署时只需插件本体和官方 `SolidWorksTools.dll`：
 

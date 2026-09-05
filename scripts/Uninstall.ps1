@@ -49,6 +49,10 @@ Remove-Item -LiteralPath "Registry::HKEY_CURRENT_USER\Software\SolidWorks\AddIns
 Remove-Item -LiteralPath "Registry::HKEY_CURRENT_USER\Software\Classes\CLSID\$addinGuid" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath 'Registry::HKEY_CURRENT_USER\Software\Classes\SolidWorksToBambu.SwAddin' -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath 'Registry::HKEY_CURRENT_USER\Software\Classes\SolidWorksToBambu.Addin' -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Classes\CLSID\$addinGuid" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Classes\SolidWorksToBambu.SwAddin' -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Classes\SolidWorksToBambu.Addin' -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SolidWorksToBambu' -Recurse -Force -ErrorAction SilentlyContinue
 
 $expectedInstallDirectories = @(
     [IO.Path]::GetFullPath((Join-Path $documentsDirectory 'SolidWorksToBambu\addin')).TrimEnd('\'),
