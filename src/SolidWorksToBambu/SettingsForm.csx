@@ -56,7 +56,7 @@ namespace SolidWorksToBambu
 
             _keepFilesCheckBox = new CheckBox
             {
-                Text = "保留插件生成的临时 STL 文件",
+                Text = "保留插件生成的临时 3MF 文件",
                 AutoSize = true,
                 Checked = settings.KeepExportFiles,
                 Location = new Point(19, 91)

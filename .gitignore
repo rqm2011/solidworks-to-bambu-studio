@@ -5,3 +5,7 @@
 *.tlb
 *.zip
 .vs/
+backups/
+fusion-logs/
+*.reg
+tests/ActiveSolidWorksAddinProbe.csx

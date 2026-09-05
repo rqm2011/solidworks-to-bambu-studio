@@ -152,7 +152,7 @@ namespace SolidWorksToBambu
                     store.CleanupOldFiles(settings.CleanupDays);
                 }
 
-                StlExportService exporter = new StlExportService(_application, store);
+                ThreeMfExportService exporter = new ThreeMfExportService(_application, store);
                 exportedPath = exporter.ExportActivePart();
                 BambuStudioLocator.Launch(bambuStudioPath, exportedPath);
                 Logger.Info("已启动 Bambu Studio: " + bambuStudioPath);

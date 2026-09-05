@@ -136,7 +136,7 @@ namespace SolidWorksToBambu
             }
 
             string suffix = DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N").Substring(0, 8);
-            return Path.Combine(RootDirectory, baseName + "_" + suffix + ".stl");
+            return Path.Combine(RootDirectory, baseName + "_" + suffix + ".3mf");
         }
 
         public void CleanupOldFiles(int days)
@@ -147,8 +147,17 @@ namespace SolidWorksToBambu
             }
 
             DateTime cutoff = DateTime.Now.AddDays(-Math.Max(1, days));
-            foreach (string file in Directory.EnumerateFiles(RootDirectory, "*.stl", SearchOption.TopDirectoryOnly))
+            foreach (string file in Directory.EnumerateFiles(RootDirectory, "*", SearchOption.TopDirectoryOnly))
             {
+                string lowerName = Path.GetFileName(file).ToLowerInvariant();
+                if (!lowerName.EndsWith(".3mf", StringComparison.Ordinal) &&
+                    !lowerName.EndsWith(".stl", StringComparison.Ordinal) &&
+                    !lowerName.EndsWith(".3mf.ipgsd", StringComparison.Ordinal) &&
+                    !lowerName.EndsWith(".stl.ipgsd", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 try
                 {
                     FileInfo info = new FileInfo(file);
@@ -177,15 +186,25 @@ namespace SolidWorksToBambu
     internal static class BambuStudioLocator
     {
         private static readonly string[] ExecutableNames = { "bambu-studio.exe", "BambuStudio.exe" };
+        private static string _cachedExecutablePath;
 
         public static string Find(string configuredPath)
         {
+            if (!string.IsNullOrWhiteSpace(_cachedExecutablePath) && File.Exists(_cachedExecutablePath))
+            {
+                return _cachedExecutablePath;
+            }
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
             foreach (string candidate in EnumerateCandidates(configuredPath))
             {
                 string normalized = NormalizeExecutablePath(candidate);
                 if (!string.IsNullOrWhiteSpace(normalized) && File.Exists(normalized))
                 {
-                    return Path.GetFullPath(normalized);
+                    _cachedExecutablePath = Path.GetFullPath(normalized);
+                    stopwatch.Stop();
+                    Logger.Info("已定位 Bambu Studio，耗时 " + stopwatch.ElapsedMilliseconds + " ms: " + _cachedExecutablePath);
+                    return _cachedExecutablePath;
                 }
             }
 
@@ -201,7 +220,7 @@ namespace SolidWorksToBambu
 
             if (string.IsNullOrWhiteSpace(modelPath) || !File.Exists(modelPath))
             {
-                throw new FileNotFoundException("找不到要导入的临时 STL 文件。", modelPath);
+                throw new FileNotFoundException("找不到要导入的临时 3MF 文件。", modelPath);
             }
 
             ProcessStartInfo startInfo = new ProcessStartInfo
@@ -364,12 +383,12 @@ namespace SolidWorksToBambu
         }
     }
 
-    internal sealed class StlExportService
+    internal sealed class ThreeMfExportService
     {
         private readonly ISldWorks _application;
         private readonly TemporaryExportStore _store;
 
-        public StlExportService(ISldWorks application, TemporaryExportStore store)
+        public ThreeMfExportService(ISldWorks application, TemporaryExportStore store)
         {
             if (application == null)
             {
@@ -411,13 +430,13 @@ namespace SolidWorksToBambu
             }
 
             string outputPath = _store.CreatePath(title, configuration);
-            model.ForceRebuild3(false);
             model.ClearSelection2(true);
 
             int errors = 0;
             int warnings = 0;
             bool success;
-            using (new StlPreferenceScope(_application))
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            using (new ThreeMfPreferenceScope(_application))
             {
                 success = model.Extension.SaveAs3(
                     outputPath,
@@ -428,16 +447,33 @@ namespace SolidWorksToBambu
                     ref errors,
                     ref warnings);
             }
+            stopwatch.Stop();
 
             if (!success || errors != 0 || !File.Exists(outputPath))
             {
                 TryDelete(outputPath);
                 throw new InvalidOperationException(
-                    "SOLIDWORKS 导出 STL 失败。错误代码: " + errors + "，警告代码: " + warnings + "。");
+                    "SOLIDWORKS 导出 3MF 失败。错误代码: " + errors + "，警告代码: " + warnings + "。");
             }
 
-            Logger.Info("已导出临时 STL: " + outputPath + " (warnings=" + warnings + ")");
+            ValidateExportFile(outputPath);
+            Logger.Info(
+                "已导出临时 3MF: " + outputPath +
+                " (warnings=" + warnings + ", elapsed=" + stopwatch.ElapsedMilliseconds + " ms)");
             return outputPath;
+        }
+
+        private static void ValidateExportFile(string path)
+        {
+            FileInfo info = new FileInfo(path);
+            if (!info.Exists || info.Length == 0)
+            {
+                throw new InvalidDataException("SOLIDWORKS 生成的 3MF 文件为空。");
+            }
+
+            // The endpoint-security layer may transparently encrypt 3MF files.
+            // Bambu Studio can read those files, so do not inspect their ZIP body.
+            Logger.Info("3MF 文件检查通过: bytes=" + info.Length);
         }
 
         private static void TryDelete(string path)
@@ -455,29 +491,29 @@ namespace SolidWorksToBambu
             }
         }
 
-        private sealed class StlPreferenceScope : IDisposable
+        private sealed class ThreeMfPreferenceScope : IDisposable
         {
             private readonly ISldWorks _application;
-            private readonly bool _binary;
+            private readonly bool _appearances;
+            private readonly bool _materials;
+            private readonly bool _decals;
             private readonly bool _showInfo;
-            private readonly bool _preview;
-            private readonly int _units;
             private bool _disposed;
 
-            public StlPreferenceScope(ISldWorks application)
+            public ThreeMfPreferenceScope(ISldWorks application)
             {
                 _application = application;
-                _binary = application.GetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSTLBinaryFormat);
-                _showInfo = application.GetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSTLShowInfoOnSave);
-                _preview = application.GetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSTLPreview);
-                _units = application.GetUserPreferenceIntegerValue((int)swUserPreferenceIntegerValue_e.swExportStlUnits);
+                _appearances = application.GetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFAppearances);
+                _materials = application.GetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFMaterials);
+                _decals = application.GetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFDecals);
+                _showInfo = application.GetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFShowInfoOnSave);
 
-                application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSTLBinaryFormat, true);
-                application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSTLShowInfoOnSave, false);
-                application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSTLPreview, false);
-                application.SetUserPreferenceIntegerValue(
-                    (int)swUserPreferenceIntegerValue_e.swExportStlUnits,
-                    (int)swLengthUnit_e.swMM);
+                // Printing only needs the mesh. Omitting appearances, materials and
+                // decals keeps the temporary 3MF compact and speeds up Bambu Studio.
+                application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFAppearances, false);
+                application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFMaterials, false);
+                application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFDecals, false);
+                application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFShowInfoOnSave, false);
             }
 
             public void Dispose()
@@ -490,14 +526,14 @@ namespace SolidWorksToBambu
                 _disposed = true;
                 try
                 {
-                    _application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSTLBinaryFormat, _binary);
-                    _application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSTLShowInfoOnSave, _showInfo);
-                    _application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSTLPreview, _preview);
-                    _application.SetUserPreferenceIntegerValue((int)swUserPreferenceIntegerValue_e.swExportStlUnits, _units);
+                    _application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFAppearances, _appearances);
+                    _application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFMaterials, _materials);
+                    _application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFDecals, _decals);
+                    _application.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.sw3MFShowInfoOnSave, _showInfo);
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error("恢复 SOLIDWORKS STL 设置失败", ex);
+                    Logger.Error("恢复 SOLIDWORKS 3MF 设置失败", ex);
                 }
             }
         }

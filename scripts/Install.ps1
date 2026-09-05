@@ -71,6 +71,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "COM registration failed with RegAsm exit code $LASTEXITCODE."
 }
 
+# Keep the 64-bit machine and current-user COM views in sync. A stale
+# per-user CodeBase takes precedence over the machine registration and makes
+# SOLIDWORKS immediately clear the add-in checkbox.
+$registrationRepairScript = Join-Path $PSScriptRoot 'Repair-SystemRegistration.ps1'
+& $registrationRepairScript -InstalledDll $installedDll
+
 Write-Host ''
 Write-Host 'Installation completed. Start SOLIDWORKS 2025 and verify the add-in under Tools > Add-Ins.' -ForegroundColor Green
 Write-Host "Installed at: $installedDll"

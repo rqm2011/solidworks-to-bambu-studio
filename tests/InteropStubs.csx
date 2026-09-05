@@ -87,9 +87,10 @@ namespace SolidWorks.Interop.swconst
     public enum swSaveAsOptions_e { swSaveAsOptions_Silent = 1 }
     public enum swUserPreferenceToggle_e
     {
-        swSTLBinaryFormat,
-        swSTLShowInfoOnSave,
-        swSTLPreview
+        sw3MFAppearances,
+        sw3MFMaterials,
+        sw3MFDecals,
+        sw3MFShowInfoOnSave
     }
     public enum swUserPreferenceIntegerValue_e { swExportStlUnits }
     public enum swLengthUnit_e { swMM }
