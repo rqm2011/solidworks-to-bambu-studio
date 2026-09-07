@@ -125,7 +125,7 @@ namespace SolidWorksToBambu
         public string CreatePath(string documentName, string configurationName)
         {
             Directory.CreateDirectory(RootDirectory);
-            string cleanDocument = Sanitize(Path.GetFileNameWithoutExtension(documentName));
+            string cleanDocument = Sanitize(Path.GetFileNameWithoutExtension(Sanitize(documentName)));
             string cleanConfiguration = Sanitize(configurationName);
             string baseName = string.IsNullOrWhiteSpace(cleanConfiguration)
                 ? cleanDocument
@@ -173,13 +173,118 @@ namespace SolidWorksToBambu
             }
         }
 
-        private static string Sanitize(string value)
+        internal static string Sanitize(string value)
         {
             string source = string.IsNullOrWhiteSpace(value) ? "SolidWorksPart" : value.Trim();
             char[] invalid = Path.GetInvalidFileNameChars();
             char[] result = source.Select(c => invalid.Contains(c) || c == '*' ? '_' : c).ToArray();
             string sanitized = new string(result).Trim('.', ' ');
             return string.IsNullOrWhiteSpace(sanitized) ? "SolidWorksPart" : sanitized;
+        }
+    }
+
+    internal sealed class MonthlyBackupStore
+    {
+        public string RootDirectory { get; private set; }
+
+        public MonthlyBackupStore()
+            : this(Path.Combine(
+                SystemEnvironment.GetFolderPath(SystemEnvironment.SpecialFolder.MyDocuments),
+                "SolidWorksToBambu",
+                "backups"))
+        {
+        }
+
+        internal MonthlyBackupStore(string rootDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(rootDirectory))
+            {
+                throw new ArgumentException("备份目录不能为空。", "rootDirectory");
+            }
+
+            RootDirectory = Path.GetFullPath(rootDirectory);
+        }
+
+        public string Backup(string exportedPath, string documentName)
+        {
+            return Backup(exportedPath, documentName, DateTime.Now);
+        }
+
+        internal string Backup(string exportedPath, string documentName, DateTime timestamp)
+        {
+            FileInfo source = new FileInfo(exportedPath);
+            if (!source.Exists || source.Length == 0)
+            {
+                throw new FileNotFoundException("找不到可备份的 3MF 文件。", exportedPath);
+            }
+
+            string monthDirectory = Path.Combine(
+                RootDirectory,
+                timestamp.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture));
+            Directory.CreateDirectory(monthDirectory);
+
+            string cleanDocument = TemporaryExportStore.Sanitize(
+                Path.GetFileNameWithoutExtension(TemporaryExportStore.Sanitize(documentName)));
+            if (cleanDocument.Length > 100)
+            {
+                cleanDocument = cleanDocument.Substring(0, 100);
+            }
+
+            string timePrefix = timestamp.ToString(
+                "yyyyMMdd_HHmmss",
+                System.Globalization.CultureInfo.InvariantCulture);
+            for (int sequence = 1; sequence <= 999; sequence++)
+            {
+                string collisionSuffix = sequence == 1 ? string.Empty : "_" + sequence;
+                string destinationPath = Path.Combine(
+                    monthDirectory,
+                    timePrefix + "_" + cleanDocument + collisionSuffix + ".3mf");
+                if (File.Exists(destinationPath))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    File.Copy(source.FullName, destinationPath, false);
+                }
+                catch (IOException)
+                {
+                    if (File.Exists(destinationPath))
+                    {
+                        continue;
+                    }
+
+                    throw;
+                }
+
+                FileInfo backup = new FileInfo(destinationPath);
+                if (!backup.Exists || backup.Length == 0)
+                {
+                    TryDelete(destinationPath);
+                    throw new IOException("3MF 备份文件不完整：" + destinationPath);
+                }
+
+                Logger.Info("已自动备份 3MF: " + destinationPath);
+                return destinationPath;
+            }
+
+            throw new IOException("同一时间的 3MF 备份文件数量过多，无法生成唯一文件名。");
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch
+            {
+                // Preserve the original backup error.
+            }
         }
     }
 
@@ -404,7 +509,7 @@ namespace SolidWorksToBambu
             _store = store;
         }
 
-        public string ExportActivePart()
+        public string ExportActivePart(out string documentName)
         {
             IModelDoc2 model = _application.ActiveDoc as IModelDoc2;
             if (model == null)
@@ -418,6 +523,7 @@ namespace SolidWorksToBambu
             }
 
             string title = model.GetTitle();
+            documentName = title;
             string configuration = string.Empty;
             try
             {

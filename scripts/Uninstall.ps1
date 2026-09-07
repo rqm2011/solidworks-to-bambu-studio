@@ -82,6 +82,18 @@ if ($RemoveUserData) {
     }
 
     Remove-Item -LiteralPath 'Registry::HKEY_CURRENT_USER\Software\SolidWorksToBambu' -Recurse -Force -ErrorAction SilentlyContinue
+
+    $backupDirectory = Join-Path $documentsDirectory 'SolidWorksToBambu\backups'
+    $expectedBackupDirectory = [IO.Path]::GetFullPath(
+        (Join-Path $documentsDirectory 'SolidWorksToBambu\backups')).TrimEnd('\')
+    $resolvedBackupDirectory = [IO.Path]::GetFullPath($backupDirectory).TrimEnd('\')
+    if ($resolvedBackupDirectory -ne $expectedBackupDirectory) {
+        throw "Refusing to delete an unverified backup directory: $resolvedBackupDirectory"
+    }
+
+    if (Test-Path -LiteralPath $resolvedBackupDirectory -PathType Container) {
+        Remove-Item -LiteralPath $resolvedBackupDirectory -Recurse -Force
+    }
 }
 
 Write-Host 'SolidWorks to Bambu Studio was uninstalled.' -ForegroundColor Green

@@ -11,4 +11,4 @@ using System.Runtime.Versioning;
 [assembly: Guid("cb855668-83e2-4562-991b-60297553ef8c")]
 [assembly: TargetFramework(".NETFramework,Version=v4.8", FrameworkDisplayName = ".NET Framework 4.8")]
 [assembly: AssemblyVersion("0.1.0.0")]
-[assembly: AssemblyFileVersion("0.2.0.0")]
+[assembly: AssemblyFileVersion("0.3.0.0")]

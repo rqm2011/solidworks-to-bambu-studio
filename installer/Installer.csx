@@ -13,15 +13,15 @@ using System.Windows.Forms;
 [assembly: AssemblyDescription("Installer for the SOLIDWORKS to Bambu Studio add-in")]
 [assembly: AssemblyCompany("SolidWorksToBambu")]
 [assembly: AssemblyProduct("SolidWorksToBambu")]
-[assembly: AssemblyVersion("0.2.0.0")]
-[assembly: AssemblyFileVersion("0.2.0.0")]
+[assembly: AssemblyVersion("0.3.0.0")]
+[assembly: AssemblyFileVersion("0.3.0.0")]
 
 namespace SolidWorksToBambu.Setup
 {
     internal static class Installer
     {
         private const string ProductName = "SOLIDWORKS -> Bambu Studio";
-        private const string ProductVersion = "0.2.0";
+        private const string ProductVersion = "0.3.0";
         private const string ResourcePrefix = "SolidWorksToBambu.Installer.Resources.";
         private const string UninstallRegistryPath =
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\SolidWorksToBambu";

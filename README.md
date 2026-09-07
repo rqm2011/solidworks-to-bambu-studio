@@ -3,8 +3,9 @@
 这是一个面向 **SOLIDWORKS 2025（64 位）** 的 C# COM 加载项。打开零件后，点击工具栏上的“发送到 Bambu Studio”，插件会自动完成：
 
 1. 将当前零件直接导出为轻量 3MF 到本地缓存；
-2. 直接用 Bambu Studio 打开该模型；
-3. 定期清理旧缓存。
+2. 按“月份/时间+文件名”自动保存一份长期备份；
+3. 直接用 Bambu Studio 打开该模型；
+4. 定期清理旧缓存。
 
 用户不需要手动“另存为 3MF”、打开“导入”对话框或寻找文件。Bambu Studio 中仍会保留打印机、耗材、摆放、支撑、切片和最终打印确认，避免错误参数直接下发打印机。
 
@@ -16,17 +17,18 @@
 - 静默导出 3MF，并在启动 Bambu Studio 前检查文件存在且非空；
 - 临时关闭 3MF 外观、材料和贴图输出以减小文件、加快导入，结束后恢复用户原有设置；
 - 允许终端安全软件透明加密临时 3MF，不尝试解包或绕开加密；
+- 每次发送前自动备份 3MF；按 `yyyy-MM` 建立月度文件夹，并以 `yyyyMMdd_HHmmss_文件名.3mf` 命名；
 - 自动查找 Bambu Studio，也可在设置窗口中手动指定；
 - 默认保留最近 7 天的缓存，避免 Bambu Studio 尚未读完时源文件被删除；
 - 提供安装、卸载和日志。
 
-> 技术说明：Bambu Studio 不能直接读取 SOLIDWORKS 的 B-Rep/特征树，因此插件会在 `%LOCALAPPDATA%\SolidWorksToBambu\exports` 下生成临时 3MF。文件由插件自动创建和清理，用户无需手动转换或导入。
+> 技术说明：Bambu Studio 不能直接读取 SOLIDWORKS 的 B-Rep/特征树，因此插件会在 `%LOCALAPPDATA%\SolidWorksToBambu\exports` 下生成临时 3MF。发送前会将文件复制到 `%USERPROFILE%\Documents\SolidWorksToBambu\backups\yyyy-MM`；临时文件可自动清理，月度备份不会被缓存清理删除。
 
 ## 安装
 
 ### 推荐：安装包
 
-从 [GitHub Releases](https://github.com/rqm2011/solidworks-to-bambu-studio/releases/latest) 下载 `SolidWorksToBambu-Setup-v0.2.0.exe`。关闭 SOLIDWORKS 后双击安装，接受 Windows 管理员权限提示即可；不需要 Visual Studio、MSBuild 或 SOLIDWORKS API 开发环境。
+从 [GitHub Releases](https://github.com/rqm2011/solidworks-to-bambu-studio/releases/latest) 下载 `SolidWorksToBambu-Setup-v0.3.0.exe`。关闭 SOLIDWORKS 后双击安装，接受 Windows 管理员权限提示即可；不需要 Visual Studio、MSBuild 或 SOLIDWORKS API 开发环境。
 
 安装包会将插件部署到 `%USERPROFILE%\Documents\SolidWorksToBambu\addin`，同步系统与当前用户的 64 位 COM 注册，并在 Windows“应用和功能”中登记卸载入口。
 
@@ -79,7 +81,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Repair-SystemRegistration.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\Uninstall.ps1
 ```
 
-同时删除设置、日志和临时导出缓存：
+同时删除设置、日志、临时导出缓存和月度备份：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Uninstall.ps1 -RemoveUserData
@@ -89,6 +91,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Uninstall.ps1 -RemoveUserData
 
 - 插件安装目录：`%USERPROFILE%\Documents\SolidWorksToBambu\addin`
 - 临时导出：`%LOCALAPPDATA%\SolidWorksToBambu\exports`
+- 月度备份：`%USERPROFILE%\Documents\SolidWorksToBambu\backups\yyyy-MM`
 - 日志：`%LOCALAPPDATA%\SolidWorksToBambu\SolidWorksToBambu.log`
 - 设置：`HKEY_CURRENT_USER\Software\SolidWorksToBambu`
 

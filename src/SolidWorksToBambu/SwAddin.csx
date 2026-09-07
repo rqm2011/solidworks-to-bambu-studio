@@ -114,6 +114,7 @@ namespace SolidWorksToBambu
         public void SendToBambuStudio()
         {
             string exportedPath = null;
+            string backupPath = null;
             try
             {
                 PluginSettings settings = PluginSettings.Load();
@@ -153,9 +154,12 @@ namespace SolidWorksToBambu
                 }
 
                 ThreeMfExportService exporter = new ThreeMfExportService(_application, store);
-                exportedPath = exporter.ExportActivePart();
+                string documentName;
+                exportedPath = exporter.ExportActivePart(out documentName);
+                MonthlyBackupStore backupStore = new MonthlyBackupStore();
+                backupPath = backupStore.Backup(exportedPath, documentName);
                 BambuStudioLocator.Launch(bambuStudioPath, exportedPath);
-                Logger.Info("已启动 Bambu Studio: " + bambuStudioPath);
+                Logger.Info("已启动 Bambu Studio: " + bambuStudioPath + " (backup=" + backupPath + ")");
             }
             catch (Exception ex)
             {
@@ -163,8 +167,11 @@ namespace SolidWorksToBambu
                 string cacheHint = string.IsNullOrWhiteSpace(exportedPath)
                     ? string.Empty
                     : SystemEnvironment.NewLine + "临时文件保留在：" + exportedPath;
+                string backupHint = string.IsNullOrWhiteSpace(backupPath)
+                    ? string.Empty
+                    : SystemEnvironment.NewLine + "备份文件保留在：" + backupPath;
                 MessageBox.Show(
-                    "发送到 Bambu Studio 失败：" + ex.Message + cacheHint,
+                    "发送到 Bambu Studio 失败：" + ex.Message + cacheHint + backupHint,
                     AddinTitle,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
